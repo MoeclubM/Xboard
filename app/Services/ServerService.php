@@ -366,6 +366,10 @@ class ServerService
                 'transport' => data_get($protocolSettings, 'transport', 'TCP'),
                 'traffic_pattern' => $protocolSettings['traffic_pattern'],
             ],
+            'sudoku' => [
+                ...$baseConfig,
+                'sudoku' => $protocolSettings,
+            ],
             default => [],
         };
 

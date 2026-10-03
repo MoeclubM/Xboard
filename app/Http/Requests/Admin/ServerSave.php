@@ -42,6 +42,20 @@ class ServerSave extends FormRequest
     ];
 
     private const PROTOCOL_RULES = [
+        'sudoku' => [
+            'aead' => 'nullable|string|in:chacha20-poly1305,aes-128-gcm',
+            'table_type' => 'nullable|string|in:prefer_entropy,prefer_ascii,up_ascii_down_entropy,up_entropy_down_ascii',
+            'enable_pure_downlink' => 'nullable|boolean',
+            'custom_table' => 'nullable|string|regex:/^(?=(?:[^x]*x){2}[^x]*$)(?=(?:[^p]*p){2}[^p]*$)[xpv]{8}$/',
+            'custom_tables' => 'nullable|array',
+            'custom_tables.*' => 'string|regex:/^(?=(?:[^x]*x){2}[^x]*$)(?=(?:[^p]*p){2}[^p]*$)[xpv]{8}$/',
+            'multiplex' => 'nullable|string|in:off,auto,on',
+            'http_mask' => 'required_if:protocol_settings.http_mask_tls,true|nullable|boolean|accepted_if:protocol_settings.http_mask_tls,true',
+            'http_mask_mode' => 'nullable|string|in:legacy,ws',
+            'http_mask_tls' => 'nullable|boolean',
+            'http_mask_host' => 'nullable|string',
+            'path_root' => 'nullable|string|regex:/^[a-zA-Z0-9_-]*$/',
+        ],
         'shadowsocks' => [
             'cipher' => 'required|string',
             'obfs' => 'nullable|string',
@@ -147,6 +161,10 @@ class ServerSave extends FormRequest
         $rules = self::PROTOCOL_RULES[$type] ?? [];
 
         return match ($type) {
+            'sudoku' => array_merge($rules, [
+                'padding_min' => 'nullable|integer|min:0|max:' . min(100, (int) ($this->input('protocol_settings.padding_max') ?? 15)),
+                'padding_max' => 'nullable|integer|max:100|min:' . max(0, (int) ($this->input('protocol_settings.padding_min') ?? 5)),
+            ]),
             'vmess' => array_merge(
                 $rules,
                 $this->buildTlsSettingsRules(),
