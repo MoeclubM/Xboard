@@ -27,6 +27,7 @@ class ClientController extends Controller
         'trojan' => '[trojan]',
         'tuic' => '[tuic]',
         'socks' => '[socks]',
+        'sudoku' => '[sudoku]',
         'anytls' => '[anytls]'
     ];
 
@@ -81,7 +82,7 @@ class ClientController extends Controller
             'servers' => $serversFiltered,
             'clientName' => $clientInfo['name'] ?? null,
             'clientVersion' => $clientInfo['version'] ?? null,
-            'userAgent' => $clientInfo['flag'] ?? null
+            'userAgent' => $request->header('User-Agent', $clientInfo['flag'])
         ]);
 
         return $protocolInstance->handle();

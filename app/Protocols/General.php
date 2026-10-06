@@ -9,7 +9,7 @@ use App\Support\AbstractProtocol;
 
 class General extends AbstractProtocol
 {
-    public $flags = ['general', 'v2rayn', 'v2rayng', 'passwall', 'ssrplus', 'sagernet'];
+    public $flags = ['sudoku', 'general', 'v2rayn', 'v2rayng', 'passwall', 'ssrplus', 'sagernet'];
 
     public $allowedProtocols = [
         Server::TYPE_VMESS,
@@ -21,12 +21,22 @@ class General extends AbstractProtocol
         Server::TYPE_SOCKS,
         Server::TYPE_TUIC,
         Server::TYPE_HTTP,
+        Server::TYPE_SUDOKU,
     ];
 
     protected $protocolRequirements = [
         'v2rayng.hysteria.protocol_settings.version' => [2 => '1.9.5'],
         'v2rayn.hysteria.protocol_settings.version' => [2 => '6.31'],
     ];
+
+    protected function filterServersByVersion()
+    {
+        return collect(parent::filterServersByVersion())
+            ->filter(fn($server) => $this->clientName === 'sudoku'
+                ? $server['type'] === Server::TYPE_SUDOKU
+                : $server['type'] !== Server::TYPE_SUDOKU)
+            ->values()->all();
+    }
 
     public function handle()
     {
@@ -45,12 +55,29 @@ class General extends AbstractProtocol
                 Server::TYPE_SOCKS => self::buildSocks($item['password'], $item),
                 Server::TYPE_TUIC => self::buildTuic($item['password'], $item),
                 Server::TYPE_HTTP => self::buildHttp($item['password'], $item),
+                Server::TYPE_SUDOKU => self::buildSudoku($item['password'], $item),
                 default => '',
             };
         }
         return response(base64_encode($uri))
             ->header('content-type', 'text/plain')
             ->header('subscription-userinfo', "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}");
+    }
+
+    public static function buildSudoku($password, $server)
+    {
+        $protocol_settings = $server['protocol_settings'];
+        $payload = [
+            'h' => $server['host'], 'p' => (int) $server['port'], 'k' => $password,
+            'a' => $protocol_settings['table_type'], 'e' => $protocol_settings['aead'],
+            'x' => !$protocol_settings['enable_pure_downlink'],
+            't' => $protocol_settings['custom_table'], 'ts' => $protocol_settings['custom_tables'],
+            'hx' => $protocol_settings['multiplex'],
+            'hd' => !$protocol_settings['http_mask'], 'hm' => $protocol_settings['http_mask_mode'],
+            'ht' => $protocol_settings['http_mask_tls'], 'hh' => $protocol_settings['http_mask_host'],
+            'hy' => $protocol_settings['path_root'],
+        ];
+        return 'sudoku://' . rtrim(strtr(base64_encode(json_encode($payload, JSON_UNESCAPED_SLASHES)), '+/', '-_'), '=') . "\r\n";
     }
 
     public static function buildShadowsocks($password, $server)

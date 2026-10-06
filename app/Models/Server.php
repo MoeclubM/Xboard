@@ -70,6 +70,7 @@ class Server extends Model
     public const TYPE_NAIVE = 'naive';
     public const TYPE_HTTP = 'http';
     public const TYPE_MIERU = 'mieru';
+    public const TYPE_SUDOKU = 'sudoku';
     public const STATUS_OFFLINE = 0;
     public const STATUS_ONLINE_NO_PUSH = 1;
     public const STATUS_ONLINE = 2;
@@ -108,6 +109,7 @@ class Server extends Model
         self::TYPE_NAIVE,
         self::TYPE_HTTP,
         self::TYPE_MIERU,
+        self::TYPE_SUDOKU,
     ];
 
     protected $table = 'v2_server';
@@ -214,6 +216,21 @@ class Server extends Model
     ];
 
     private const PROTOCOL_CONFIGURATIONS = [
+        self::TYPE_SUDOKU => [
+            'aead' => ['type' => 'string', 'default' => 'chacha20-poly1305'],
+            'table_type' => ['type' => 'string', 'default' => 'prefer_entropy'],
+            'padding_min' => ['type' => 'integer', 'default' => 5],
+            'padding_max' => ['type' => 'integer', 'default' => 15],
+            'enable_pure_downlink' => ['type' => 'boolean', 'default' => false],
+            'custom_table' => ['type' => 'string', 'default' => ''],
+            'custom_tables' => ['type' => 'array', 'default' => []],
+            'multiplex' => ['type' => 'string', 'default' => 'off'],
+            'http_mask' => ['type' => 'boolean', 'default' => false],
+            'http_mask_mode' => ['type' => 'string', 'default' => 'legacy'],
+            'http_mask_tls' => ['type' => 'boolean', 'default' => false],
+            'http_mask_host' => ['type' => 'string', 'default' => ''],
+            'path_root' => ['type' => 'string', 'default' => ''],
+        ],
         self::TYPE_TROJAN => [
             'tls' => ['type' => 'integer', 'default' => 1],
             'network' => ['type' => 'string', 'default' => null],
