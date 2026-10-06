@@ -147,11 +147,15 @@ class ClashMeta extends AbstractProtocol
         $agent = $this->userAgent ?? "{$this->clientName}/{$this->clientVersion}";
         if (preg_match('/(?:^|[\s(;])(?:mihomo|clash\.meta|meta)[\/\s]+v?(\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?)(?![\d.])/i', $agent, $matches)) {
             $supportsSudoku = version_compare($matches[1], '1.19.22', '>=');
-        } elseif (preg_match('/(?:^|[\s(;])(clash-verge|flclash)[\/\s]+v?(\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?)(?![\d.])/i', $agent, $matches)) {
+        } elseif (preg_match('/(?:^|[\s(;])(clash-verge|flclash|clashmetaforandroid)[\/\s]+v?(\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?)(?:\.(meta|alpha)(?:\.debug)?)?(?![\d.])/i', $agent, $matches)) {
             // Minimum releases with compatible bundled Sudoku implementations.
-            $minVersion = strtolower($matches[1]) === 'flclash' ? '0.8.93' : '2.5.0';
+            $minVersion = [
+                'clash-verge' => '2.5.0',
+                'flclash' => '0.8.93',
+                'clashmetaforandroid' => '2.11.25',
+            ][strtolower($matches[1])];
             $version = explode('-', $matches[2], 2);
-            $supportsSudoku = version_compare($version[0], $minVersion, isset($version[1]) ? '>' : '>=');
+            $supportsSudoku = version_compare($version[0], $minVersion, isset($version[1]) || strtolower($matches[3] ?? '') === 'alpha' ? '>' : '>=');
         } else {
             $supportsSudoku = false;
         }
