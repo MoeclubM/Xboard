@@ -147,9 +147,11 @@ class ClashMeta extends AbstractProtocol
         $agent = $this->userAgent ?? "{$this->clientName}/{$this->clientVersion}";
         if (preg_match('/(?:^|[\s(;])(?:mihomo|clash\.meta|meta)[\/\s]+v?(\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?)(?![\d.])/i', $agent, $matches)) {
             $supportsSudoku = version_compare($matches[1], '1.19.22', '>=');
-        } elseif (preg_match('/(?:^|[\s(;])clash-verge[\/\s]+v?(\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?)(?![\d.])/i', $agent, $matches)) {
-            // Clash Verge Rev 2.5.0 bundles Mihomo 1.19.25.
-            $supportsSudoku = version_compare($matches[1], '2.5.0', '>=');
+        } elseif (preg_match('/(?:^|[\s(;])(clash-verge|flclash)[\/\s]+v?(\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?)(?![\d.])/i', $agent, $matches)) {
+            // Minimum releases with compatible bundled Sudoku implementations.
+            $minVersion = strtolower($matches[1]) === 'flclash' ? '0.8.93' : '2.5.0';
+            $version = explode('-', $matches[2], 2);
+            $supportsSudoku = version_compare($version[0], $minVersion, isset($version[1]) ? '>' : '>=');
         } else {
             $supportsSudoku = false;
         }
