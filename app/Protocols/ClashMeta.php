@@ -10,7 +10,7 @@ use App\Support\AbstractProtocol;
 
 class ClashMeta extends AbstractProtocol
 {
-    public $flags = ['mihomo', 'meta', 'verge', 'flclash', 'nekobox', 'clashmetaforandroid'];
+    public $flags = ['mihomo', 'meta', 'verge', 'flclash', 'nekobox', 'clashmetaforandroid', 'sparkle', 'clash-party', 'nyanpasu', 'gui.for.clash', 'openclash'];
     const CUSTOM_TEMPLATE_FILE = 'resources/rules/custom.clashmeta.yaml';
     const CUSTOM_CLASH_TEMPLATE_FILE = 'resources/rules/custom.clash.yaml';
     const DEFAULT_TEMPLATE_FILE = 'resources/rules/default.clash.yaml';
@@ -145,14 +145,20 @@ class ClashMeta extends AbstractProtocol
     protected function filterServersByVersion()
     {
         $agent = $this->userAgent ?? "{$this->clientName}/{$this->clientVersion}";
-        if (preg_match('/(?:^|[\s(;])(?:mihomo|clash\.meta|meta)[\/\s]+v?(\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?)(?![\d.])/i', $agent, $matches)) {
-            $supportsSudoku = version_compare($matches[1], '1.19.22', '>=');
-        } elseif (preg_match('/(?:^|[\s(;])(clash-verge|flclash|clashmetaforandroid)[\/\s]+v?(\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?)(?:\.(meta|alpha)(?:\.debug)?)?(?![\d.])/i', $agent, $matches)) {
+        if (preg_match('/(?:^|[\s(;])(mihomo(?:[-.\s](?:meta|smart|alpha))?|clash(?:[.\s]meta)?|meta)[\/\s]+([^\s();]+)/i', $agent, $matches)) {
+            $supportsSudoku = strtolower($matches[1]) !== 'clash'
+                && preg_match('/^v?(\d+\.\d+\.\d+)(?:-([a-z0-9.-]+))?(?:\+[a-z0-9.-]+)?$/i', $matches[2], $version)
+                && version_compare($version[1], '1.19.22', !empty($version[2]) ? '>' : '>=');
+        } elseif (preg_match('/(?:^|[\s(;])(clash-verge|flclash|clashmetaforandroid|mihomo[.-]party|clash-party|sparkle)[\/\s]+v?(\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?)(?:\.(meta|alpha)(?:\.debug)?)?(?:\+[a-z0-9.-]+)?(?=$|[\s();])/i', $agent, $matches)) {
             // Minimum releases with compatible bundled Sudoku implementations.
             $minVersion = [
                 'clash-verge' => '2.5.0',
                 'flclash' => '0.8.93',
                 'clashmetaforandroid' => '2.11.25',
+                'mihomo.party' => '1.9.5',
+                'mihomo-party' => '1.9.5',
+                'clash-party' => '1.9.5',
+                'sparkle' => '1.26.4',
             ][strtolower($matches[1])];
             $version = explode('-', $matches[2], 2);
             $supportsSudoku = version_compare($version[0], $minVersion, isset($version[1]) || strtolower($matches[3] ?? '') === 'alpha' ? '>' : '>=');
