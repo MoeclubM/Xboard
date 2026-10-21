@@ -7,42 +7,123 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
-      id-token: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1 
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: 'arm64,amd64'
+      - name: Set image and application version
+        id: image
+        run: |
+          echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "version=$(date -u '+%Y%m%d')-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          platforms: linux/amd64,linux/arm64
-          driver-opts: |
-            image=moby/buildkit:v0.20.0
-            network=host
 
       - name: Free Disk Space
         run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
           sudo docker image prune -af
+
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push platform image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          pull: true
+          cache-from: type=gha,scope=xboard-${{ matrix.arch }}
+          cache-to: type=gha,scope=xboard-${{ matrix.arch }},mode=max
+          tags: ${{ steps.image.outputs.name }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.image.outputs.version }}
+          build-args: |
+            CACHEBUST=${{ github.sha }}
+            REPO_URL=${{ github.server_url }}/${{ github.repository }}
+            BRANCH_NAME=${{ github.ref_name }}
+            SOURCE_REVISION=${{ github.sha }}
+            APP_VERSION=${{ steps.image.outputs.version }}
+          provenance: false
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Verify PHP and application runtime
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+        run: |
+          docker pull "$IMAGE"
+          docker run --rm --network none --entrypoint php "$IMAGE" -v
+          docker run --rm --network none --entrypoint php "$IMAGE" -r '
+            if (PHP_VERSION !== "8.2.35") { throw new RuntimeException("Unexpected PHP version: ".PHP_VERSION); }
+            Swoole\Coroutine\run(function () {
+                $channel = new Swoole\Coroutine\Channel(1);
+                $channel->push("ok");
+                if ($channel->pop() !== "ok") { throw new RuntimeException("Swoole coroutine check failed"); }
+            });
+          '
+          docker run --rm --network none --entrypoint composer "$IMAGE" check-platform-reqs --no-dev
+          docker run --rm --network none --entrypoint php "$IMAGE" artisan --version
+
+      - name: Export image digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+
+      - name: Upload image digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          retention-days: 1
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download image digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set image name
+        id: image
+        run: echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to registry
         uses: docker/login-action@v3
@@ -55,46 +136,25 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ steps.image.outputs.name }}
           tags: |
             type=ref,event=branch
-            type=sha,format=short,prefix=,enable=true
+            type=sha,format=short,prefix=
             type=raw,value=new,enable=${{ github.ref == 'refs/heads/master' }}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
-            type=raw,value=${{ steps.get_version.outputs.version }}
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
 
-      - name: Get version
-        id: get_version
-        run: echo "version=$(git describe --tags --always)" >> $GITHUB_OUTPUT
-
-      - name: Update version in app.php
+      - name: Publish verified multi-platform image
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          METADATA: ${{ steps.meta.outputs.json }}
         run: |
-          VERSION=$(date '+%Y%m%d')-$(git rev-parse --short HEAD)
-          sed -i "s/'version' => '.*'/'version' => '$VERSION'/g" config/app.php
-          echo "Updated version to: $VERSION"
-
-      - name: Build and push
-        id: build-and-push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1
-            BUILDKIT_MULTI_PLATFORM=1
-            CACHEBUST=${{ github.sha }}
-            REPO_URL=https://github.com/${{ github.repository }}
-            BRANCH_NAME=${{ github.ref_name }}
-          provenance: false
-          outputs: type=registry,push=true
-          allow: |
-            network.host
-
+          mapfile -t tags < <(jq -r '.tags[]' <<< "$METADATA")
+          tag_args=()
+          for tag in "${tags[@]}"; do tag_args+=(--tag "$tag"); done
+          sources=()
+          for digest in "$RUNNER_TEMP/digests/"*; do
+            sources+=("${IMAGE}@sha256:$(basename "$digest")")
+          done
+          test "${#sources[@]}" -eq 2
+          docker buildx imagetools create "${tag_args[@]}" "${sources[@]}"
+          docker buildx imagetools inspect "${tags[0]}"
