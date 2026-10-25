@@ -1,0 +1,21 @@
+name: Protocol subscription keys
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shadowsocks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, curl, gd, intl, zip, bcmath
+          coverage: none
+      - run: composer install --prefer-dist --no-interaction --no-progress --no-scripts
+      - run: vendor/bin/phpunit --bootstrap vendor/autoload.php tests/Unit/Models/ShadowsocksPasswordTest.php
