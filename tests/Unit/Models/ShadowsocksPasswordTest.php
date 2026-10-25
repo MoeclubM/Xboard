@@ -15,7 +15,8 @@ class ShadowsocksPasswordTest extends TestCase
             'type' => 'shadowsocks',
             'protocol_settings' => json_encode(['cipher' => '2022-blake3-chacha20-poly1305']),
         ]);
-        $user = new User(['uuid' => 'a3482e88-686a-4a58-8126-99c9df64b7bf']);
+        $user = new User();
+        $user->setRawAttributes(['uuid' => 'a3482e88-686a-4a58-8126-99c9df64b7bf']);
 
         $this->assertSame(
             'YTM0ODJlODgtNjg2YS00YTU4LTgxMjYtOTljOWRmNjQ=',
@@ -27,12 +28,14 @@ class ShadowsocksPasswordTest extends TestCase
     {
         foreach (['2022-blake3-aes-128-gcm' => 16, '2022-blake3-aes-256-gcm' => 32] as $cipher => $length) {
             $server = new Server();
+            $server->setDateFormat('Y-m-d H:i:s');
             $server->setRawAttributes([
                 'type' => 'shadowsocks',
                 'protocol_settings' => json_encode(['cipher' => $cipher]),
                 'created_at' => '2026-10-25 00:00:00',
             ]);
-            $user = new User(['uuid' => 'a3482e88-686a-4a58-8126-99c9df64b7bf']);
+            $user = new User();
+            $user->setRawAttributes(['uuid' => 'a3482e88-686a-4a58-8126-99c9df64b7bf']);
             $keys = explode(':', $server->generateServerPassword($user));
 
             $this->assertCount(2, $keys);
