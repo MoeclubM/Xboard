@@ -40,7 +40,7 @@ class AuthController extends Controller
         }
 
         $params = $request->validate([
-            'email' => 'required|email:strict|max:64',
+            'email' => 'required|email:strict|max:' . User::EMAIL_MAX_LENGTH,
             'redirect' => 'nullable'
         ]);
 

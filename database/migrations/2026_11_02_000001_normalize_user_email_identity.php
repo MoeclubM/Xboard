@@ -18,17 +18,17 @@ return new class extends Migration {
         // Use bytewise comparison for MySQL and PostgreSQL; SQLite defaults to BINARY.
         if (DB::getDriverName() === 'mysql') {
             Schema::table('v2_user', function (Blueprint $table) {
-                $table->string('email', 64)
+                $table->string('email', User::EMAIL_MAX_LENGTH)
                     ->charset('utf8mb4')
                     ->collation('utf8mb4_bin')
                     ->change();
             });
         } elseif (DB::getDriverName() === 'pgsql') {
-            DB::statement('ALTER TABLE "v2_user" ALTER COLUMN "email" TYPE varchar(64) COLLATE "C" USING "email"::varchar(64)');
+            DB::statement('ALTER TABLE "v2_user" ALTER COLUMN "email" TYPE varchar(' . User::EMAIL_MAX_LENGTH . ') COLLATE "C" USING "email"::varchar(' . User::EMAIL_MAX_LENGTH . ')');
         } elseif (DB::getDriverName() === 'sqlsrv') {
             Schema::table('v2_user', fn (Blueprint $table) => $table->dropUnique('email'));
             Schema::table('v2_user', function (Blueprint $table) {
-                $table->string('email', 64)
+                $table->string('email', User::EMAIL_MAX_LENGTH)
                     ->collation('Latin1_General_100_BIN2')
                     ->change();
             });
@@ -72,7 +72,7 @@ return new class extends Migration {
             }
 
             Schema::table('v2_user', function (Blueprint $table) {
-                $table->string('email', 64)
+                $table->string('email', User::EMAIL_MAX_LENGTH)
                     ->charset('utf8mb4')
                     ->collation('utf8mb4_unicode_ci')
                     ->change();
@@ -90,7 +90,7 @@ return new class extends Migration {
                 );
             }
 
-            DB::statement('ALTER TABLE "v2_user" ALTER COLUMN "email" TYPE varchar(64) COLLATE "default" USING "email"::varchar(64)');
+            DB::statement('ALTER TABLE "v2_user" ALTER COLUMN "email" TYPE varchar(' . User::EMAIL_MAX_LENGTH . ') COLLATE "default" USING "email"::varchar(' . User::EMAIL_MAX_LENGTH . ')');
         } elseif ($driver === 'sqlsrv') {
             $hasLegacyCollisions = DB::table('v2_user')
                 ->selectRaw('1')
@@ -106,7 +106,7 @@ return new class extends Migration {
 
             Schema::table('v2_user', fn (Blueprint $table) => $table->dropUnique('email'));
             Schema::table('v2_user', function (Blueprint $table) {
-                $table->string('email', 64)
+                $table->string('email', User::EMAIL_MAX_LENGTH)
                     ->collation('DATABASE_DEFAULT')
                     ->change();
             });
@@ -125,9 +125,9 @@ return new class extends Migration {
                 foreach ($users as $user) {
                     $email = User::normalizeEmail((string) $user->email);
 
-                    if (mb_strlen($email, 'UTF-8') > 64) {
+                    if (mb_strlen($email, 'UTF-8') > User::EMAIL_MAX_LENGTH) {
                         throw new RuntimeException(
-                            "Normalized email exceeds the 64-character column limit for user ID {$user->id}."
+                            "Normalized email exceeds the " . User::EMAIL_MAX_LENGTH . "-character column limit for user ID {$user->id}."
                         );
                     }
 

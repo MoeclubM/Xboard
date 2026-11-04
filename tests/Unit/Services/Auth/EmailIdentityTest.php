@@ -4,6 +4,7 @@ namespace Tests\Unit\Services\Auth;
 
 use App\Http\Controllers\V1\Passport\CommController;
 use App\Http\Requests\Passport\AuthRegister;
+use App\Http\Requests\Passport\AuthLogin;
 use App\Http\Requests\Admin\UserGenerate;
 use App\Http\Requests\Passport\CommSendEmailVerify;
 use App\Models\User;
@@ -80,7 +81,7 @@ class EmailIdentityTest extends TestCase
 
         $tooLong = UserGenerate::create('/admin/user/generate', 'POST', [
             'email_prefix' => 'Admin',
-            'email_suffix' => str_repeat('例', 20) . '.' . str_repeat('例', 20) . '.' . str_repeat('例', 20),
+            'email_suffix' => implode('.', array_fill(0, 8, str_repeat('例', 20))),
         ]);
         $tooLong->setContainer(app())->setRedirector(app('redirect'));
 
@@ -94,9 +95,9 @@ class EmailIdentityTest extends TestCase
 
     public function test_request_validation_checks_the_normalized_email_length(): void
     {
-        $email = 'a@' . str_repeat('例', 20) . '.' . str_repeat('例', 20) . '.' . str_repeat('例', 20);
-        $this->assertSame(64, mb_strlen($email, 'UTF-8'));
-        $this->assertGreaterThan(64, mb_strlen(User::normalizeEmail($email), 'UTF-8'));
+        $email = 'a@' . implode('.', array_fill(0, 8, str_repeat('例', 20)));
+        $this->assertLessThanOrEqual(User::EMAIL_MAX_LENGTH, mb_strlen($email, 'UTF-8'));
+        $this->assertGreaterThan(User::EMAIL_MAX_LENGTH, mb_strlen(User::normalizeEmail($email), 'UTF-8'));
 
         $request = AuthRegister::create('/register', 'POST', [
             'email' => $email,
@@ -110,6 +111,19 @@ class EmailIdentityTest extends TestCase
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('email', $exception->errors());
         }
+    }
+
+    public function test_existing_long_email_remains_valid_for_login(): void
+    {
+        $email = str_repeat('u', 40) . '@' . str_repeat('a', 24) . '.example';
+        $user = $this->createUser($email);
+        $request = AuthLogin::create('/login', 'POST', ['email' => $email, 'password' => 'password123']);
+        $request->setContainer(app())->setRedirector(app('redirect'));
+        $request->validateResolved();
+
+        [$success] = app(LoginService::class)->login($email, 'password123');
+        $this->assertTrue($success);
+        $this->assertSame($user->id, User::byEmail($email)->value('id'));
     }
 
     public function test_email_whitelist_matches_unicode_and_punycode_domains(): void

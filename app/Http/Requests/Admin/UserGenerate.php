@@ -39,8 +39,8 @@ class UserGenerate extends FormRequest
                 : 'xxxxxx';
 
             $email = User::normalizeEmail($prefix . '@' . $this->input('email_suffix'));
-            if (Validator::make(['email' => $email], ['email' => 'required|email:strict|max:64'])->fails()) {
-                $validator->errors()->add('email_suffix', '生成邮箱格式无效或规范化后长度超过64个字符');
+            if (Validator::make(['email' => $email], ['email' => 'required|email:strict|max:' . User::EMAIL_MAX_LENGTH])->fails()) {
+                $validator->errors()->add('email_suffix', sprintf('生成邮箱格式无效或规范化后长度超过%d个字符', User::EMAIL_MAX_LENGTH));
             }
         });
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Passport;
 
+use App\Models\User;
 use App\Http\Requests\Concerns\NormalizesEmail;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -16,7 +17,7 @@ class AuthForget extends FormRequest
     public function rules()
     {
         return [
-            'email' => 'required|email:strict|max:64',
+            'email' => 'required|email:strict|max:' . User::EMAIL_MAX_LENGTH,
             'password' => 'required|min:8',
             'email_code' => 'required|digits:6'
         ];

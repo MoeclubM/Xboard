@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\User;
 use App\Services\Plugin\HookManager;
 use App\Http\Requests\Concerns\NormalizesEmail;
 use Illuminate\Foundation\Http\FormRequest;
@@ -18,7 +19,7 @@ class UserUpdate extends FormRequest
     {
         $rules = [
             'id' => 'required|integer',
-            'email' => 'email:strict|max:64',
+            'email' => 'email:strict|max:' . User::EMAIL_MAX_LENGTH,
             'password' => 'nullable|min:8',
             'transfer_enable' => 'numeric',
             'expired_at' => 'nullable|integer',

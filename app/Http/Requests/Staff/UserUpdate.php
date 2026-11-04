@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Staff;
 
+use App\Models\User;
 use App\Http\Requests\Concerns\NormalizesEmail;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -16,7 +17,7 @@ class UserUpdate extends FormRequest
     public function rules()
     {
         return [
-            'email' => 'required|email:strict|max:64',
+            'email' => 'required|email:strict|max:' . User::EMAIL_MAX_LENGTH,
             'password' => 'nullable',
             'transfer_enable' => 'numeric',
             'expired_at' => 'nullable|integer',

@@ -83,6 +83,7 @@ class User extends Authenticatable
     public const COMMISSION_TYPE_SYSTEM = 0;
     public const COMMISSION_TYPE_PERIOD = 1;
     public const COMMISSION_TYPE_ONETIME = 2;
+    public const EMAIL_MAX_LENGTH = 191;
     protected function email(): Attribute
     {
         return Attribute::make(
