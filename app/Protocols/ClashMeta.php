@@ -3,7 +3,6 @@
 namespace App\Protocols;
 
 use App\Models\Server;
-use App\Support\FluxConfig;
 use App\Utils\Helper;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Yaml\Yaml;
@@ -11,7 +10,7 @@ use App\Support\AbstractProtocol;
 
 class ClashMeta extends AbstractProtocol
 {
-    public $flags = ['mihomo', 'meta', 'verge', 'flclash', 'nekobox', 'clashmetaforandroid', 'sparkle', 'clash-party', 'nyanpasu', 'gui.for.clash', 'openclash', 'aerion', 'xbclient'];
+    public $flags = ['mihomo', 'meta', 'verge', 'flclash', 'nekobox', 'clashmetaforandroid', 'sparkle', 'clash-party', 'nyanpasu', 'gui.for.clash', 'openclash'];
     const CUSTOM_TEMPLATE_FILE = 'resources/rules/custom.clashmeta.yaml';
     const CUSTOM_CLASH_TEMPLATE_FILE = 'resources/rules/custom.clash.yaml';
     const DEFAULT_TEMPLATE_FILE = 'resources/rules/default.clash.yaml';
@@ -166,10 +165,6 @@ class ClashMeta extends AbstractProtocol
         } else {
             $supportsSudoku = false;
         }
-        if (FluxConfig::supportsClient(request(), $agent, $this->clientName)) {
-            $this->allowedProtocols[] = Server::TYPE_FLUX;
-        }
-
         return collect(parent::filterServersByVersion())
             ->filter(fn($server) => $server['type'] !== Server::TYPE_SUDOKU || $supportsSudoku)
             ->values()->all();
@@ -188,53 +183,9 @@ class ClashMeta extends AbstractProtocol
         $proxies = [];
 
         foreach ($servers as $item) {
-            if ($item['type'] === Server::TYPE_SHADOWSOCKS) {
-                array_push($proxy, self::buildShadowsocks($item['password'], $item));
-                array_push($proxies, $item['name']);
-            }
-            if ($item['type'] === Server::TYPE_VMESS) {
-                array_push($proxy, self::buildVmess($item['password'], $item));
-                array_push($proxies, $item['name']);
-            }
-            if ($item['type'] === Server::TYPE_TROJAN) {
-                array_push($proxy, self::buildTrojan($item['password'], $item));
-                array_push($proxies, $item['name']);
-            }
-            if ($item['type'] === Server::TYPE_VLESS) {
-                array_push($proxy, self::buildVless($item['password'], $item));
-                array_push($proxies, $item['name']);
-            }
-            if ($item['type'] === Server::TYPE_HYSTERIA) {
-                array_push($proxy, self::buildHysteria($item['password'], $item, $user));
-                array_push($proxies, $item['name']);
-            }
-            if ($item['type'] === Server::TYPE_TUIC) {
-                array_push($proxy, self::buildTuic($item['password'], $item));
-                array_push($proxies, $item['name']);
-            }
-            if ($item['type'] === Server::TYPE_ANYTLS) {
-                array_push($proxy, self::buildAnyTLS($item['password'], $item));
-                array_push($proxies, $item['name']);
-            }
-            if ($item['type'] === Server::TYPE_SOCKS) {
-                array_push($proxy, self::buildSocks5($item['password'], $item));
-                array_push($proxies, $item['name']);
-            }
-            if ($item['type'] === Server::TYPE_HTTP) {
-                array_push($proxy, self::buildHttp($item['password'], $item));
-                array_push($proxies, $item['name']);
-            }
-            if ($item['type'] === Server::TYPE_SUDOKU) {
-                array_push($proxy, self::buildSudoku($item['password'], $item));
-                array_push($proxies, $item['name']);
-            }
-            if ($item['type'] === Server::TYPE_FLUX) {
-                array_push($proxy, FluxConfig::toClashClientProxy((string) $item['password'], $item));
-                array_push($proxies, $item['name']);
-            }
-            if ($item['type'] === Server::TYPE_MIERU) {
-                array_push($proxy, self::buildMieru($item['password'], $item));
-                array_push($proxies, $item['name']);
+            if (($entry = $this->buildProxy($item)) !== null) {
+                $proxy[] = $entry;
+                $proxies[] = $item['name'];
             }
         }
 
@@ -273,6 +224,25 @@ class ClashMeta extends AbstractProtocol
             ->header('subscription-userinfo', "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}")
             ->header('profile-update-interval', '24')
             ->header('content-disposition', 'attachment;filename*=UTF-8\'\'' . rawurlencode($appName));
+    }
+
+    protected function buildProxy(array $server): ?array
+    {
+        $password = $server['password'];
+        return match ($server['type']) {
+            Server::TYPE_SHADOWSOCKS => self::buildShadowsocks($password, $server),
+            Server::TYPE_VMESS => self::buildVmess($password, $server),
+            Server::TYPE_TROJAN => self::buildTrojan($password, $server),
+            Server::TYPE_VLESS => self::buildVless($password, $server),
+            Server::TYPE_HYSTERIA => self::buildHysteria($password, $server, $this->user),
+            Server::TYPE_TUIC => self::buildTuic($password, $server),
+            Server::TYPE_ANYTLS => self::buildAnyTLS($password, $server),
+            Server::TYPE_SOCKS => self::buildSocks5($password, $server),
+            Server::TYPE_HTTP => self::buildHttp($password, $server),
+            Server::TYPE_SUDOKU => self::buildSudoku($password, $server),
+            Server::TYPE_MIERU => self::buildMieru($password, $server),
+            default => null,
+        };
     }
 
     /**

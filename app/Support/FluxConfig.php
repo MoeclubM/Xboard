@@ -542,7 +542,7 @@ class FluxConfig
         return $out;
     }
 
-    public static function toClashClientProxy(string $password, array $server): array
+    public static function toClientProxy(string $password, array $server): array
     {
         $rawSettings = is_array($server['protocol_settings'] ?? null) ? $server['protocol_settings'] : [];
         $settings = self::normalizeSettings($rawSettings);

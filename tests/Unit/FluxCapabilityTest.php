@@ -3,6 +3,8 @@
 namespace Tests\Unit;
 
 use App\Protocols\ClashMeta;
+use App\Protocols\Aerion;
+use App\Support\ProtocolManager;
 use App\Support\FluxConfig;
 use Illuminate\Http\Request;
 use Tests\TestCase;
@@ -11,7 +13,7 @@ class FluxCapabilityTest extends TestCase
 {
     public function test_channel_can_enable_certificate_verification_over_an_insecure_default(): void
     {
-        $proxy = FluxConfig::toClashClientProxy('credential', [
+        $proxy = FluxConfig::toClientProxy('credential', [
             'name' => 'Flux', 'host' => 'edge.example.com', 'port' => 443,
             'protocol_settings' => [
                 'security' => 'tls', 'tls_settings' => ['allow_insecure' => true],
@@ -28,7 +30,7 @@ class FluxCapabilityTest extends TestCase
         $this->assertTrue($proxy['channels'][2]['skip-cert-verify']);
     }
 
-    public function test_flux_is_explicit_and_never_assumed_from_clash_format(): void
+    public function test_mihomo_never_exports_flux_even_with_an_explicit_capability(): void
     {
         foreach ([
             ['Mihomo/1.19.0', '', '', false],
@@ -48,7 +50,45 @@ class FluxCapabilityTest extends TestCase
             $protocol = new class([], [['type' => 'flux', 'name' => 'flux-node']], null, null, $agent) extends ClashMeta {
                 public function selected(): array { return $this->servers; }
             };
+            $this->assertCount(0, $protocol->selected());
+        }
+    }
+
+    public function test_aerion_has_its_own_flags_and_capability_filter(): void
+    {
+        $manager = new ProtocolManager($this->app);
+        $this->assertSame(Aerion::class, $manager->matchProtocolClassName('aerion'));
+        $this->assertSame(Aerion::class, $manager->matchProtocolClassName('XBClient/0.1'));
+        $this->assertSame(ClashMeta::class, $manager->matchProtocolClassName('Mihomo/1.19.22'));
+        $this->assertSame(ClashMeta::class, $manager->matchProtocolClassName('meta'));
+
+        foreach ([['', '', true], ['all', '', true], ['flux', '', true],
+            ['vless,sudoku', 'flux', false], ['', 'sudoku', false], ['', 'sudoku,flux', true]]
+            as [$types, $header, $expected]) {
+            $request = Request::create('/subscribe', 'GET', ['flag' => 'aerion', 'types' => $types]);
+            $request->headers->set('X-XBClient-Protocols', $header);
+            $this->app->instance('request', $request);
+            $protocol = new class([], [['type' => 'flux', 'name' => 'Flux']], 'aerion') extends Aerion {
+                public function selected(): array { return $this->servers; }
+            };
             $this->assertCount($expected ? 1 : 0, $protocol->selected());
         }
+    }
+
+    public function test_aerion_keeps_standard_builders_and_owns_flux_serialization(): void
+    {
+        $this->app->instance('request', Request::create('/subscribe'));
+        $aerion = new class([], [], 'aerion') extends Aerion {
+            public function proxy(array $server): ?array { return $this->buildProxy($server); }
+        };
+        $mihomo = new class([], []) extends ClashMeta {
+            public function proxy(array $server): ?array { return $this->buildProxy($server); }
+        };
+        $server = ['type' => 'flux', 'name' => 'Flux', 'host' => 'edge.example.com', 'port' => 443,
+            'password' => 'credential', 'protocol_settings' => ['security' => 'obfs', 'obfs_key' => 'secret']];
+        $this->assertNull($mihomo->proxy($server));
+        $this->assertSame(FluxConfig::toClientProxy('credential', $server), $aerion->proxy($server));
+        $server['type'] = 'http';
+        $this->assertSame($mihomo->proxy($server), $aerion->proxy($server));
     }
 }
