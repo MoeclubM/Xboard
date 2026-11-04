@@ -271,7 +271,7 @@ class FluxConfig
             'weight' => $weight,
             'transport' => $transport,
             'sni' => trim((string) ($ch['sni'] ?? '')),
-            'allow_insecure' => (bool) ($ch['allow_insecure'] ?? false),
+            'allow_insecure' => isset($ch['allow_insecure']) ? (bool) $ch['allow_insecure'] : null,
             'fingerprint' => trim((string) ($ch['fingerprint'] ?? '')),
             'cert_mode' => $certMode,
             'cert_path' => trim((string) ($ch['cert_path'] ?? '')),
@@ -645,8 +645,8 @@ class FluxConfig
             if ($chSni !== null) {
                 $item['sni'] = $chSni;
             }
-            if (!empty($ch['allow_insecure'])) {
-                $item['skip-cert-verify'] = true;
+            if ($ch['allow_insecure'] !== null) {
+                $item['skip-cert-verify'] = $ch['allow_insecure'];
             }
             if (!empty($ch['fingerprint'])) {
                 $item['client-fingerprint'] = $ch['fingerprint'];
