@@ -86,7 +86,7 @@ class FluxCapabilityTest extends TestCase
             public function proxy(array $server): ?array { return $this->buildProxy($server); }
         };
         $server = ['type' => 'flux', 'name' => 'Flux', 'host' => 'edge.example.com', 'port' => 443,
-            'password' => 'credential', 'protocol_settings' => ['security' => 'obfs', 'obfs_key' => 'secret']];
+            'password' => 'credential', 'protocol_settings' => ['security' => 'obfs', 'obfs_key' => 'secret', 'utls' => 'chrome']];
         $this->assertNull($mihomo->proxy($server));
         $this->assertSame(FluxConfig::toClientProxy('credential', $server), $aerion->proxy($server));
         $server['type'] = 'http';
