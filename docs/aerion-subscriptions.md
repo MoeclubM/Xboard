@@ -2,7 +2,7 @@
 
 Aerion/XBClient 使用独立的 `App\Protocols\Aerion` 适配器。订阅地址保留原有路径和令牌，使用 `flag=aerion` 或 `flag=xbclient` 选择；未指定 `flag` 时，也可通过 `User-Agent: Aerion` 或 `XBClient` 自动识别。
 
-适配器输出 YAML，沿用现有 `clashmeta` 模板中的代理组、规则及标准协议字段。它独立维护支持的协议列表与能力过滤，不使用 Mihomo 的客户端版本要求。标准协议字段构造及模板渲染复用已有实现，避免维护两份相同代码。
+适配器输出 YAML，沿用现有 `clashmeta` 模板中的代理组、规则及标准协议字段。Aerion 和 ClashMeta 分别继承基础协议类，独立维护支持的协议列表与能力过滤；Aerion 不继承 Mihomo 适配器或其客户端版本要求。两者共用 `YamlSubscription` 渲染代码，标准字段继续调用已有序列化方法，避免维护两份相同代码。
 
 Flux 只由 Aerion 适配器和 XBClient 专用节点接口导出。`flag=meta`、`flag=mihomo` 及其他 Mihomo 客户端标识始终选择原来的适配器；即使同时发送 `types=flux`、`X-XBClient-Protocols: flux` 或 Aerion 用户标识，也不会让 Mihomo 输出 Flux。
 

@@ -4,12 +4,14 @@ namespace App\Protocols;
 
 use App\Models\Server;
 use App\Support\FluxConfig;
+use App\Support\AbstractProtocol;
+use App\Support\YamlSubscription;
 
-class Aerion extends ClashMeta
+class Aerion extends AbstractProtocol
 {
-    public $flags = ['aerion', 'xbclient'];
+    use YamlSubscription { buildProxy as protected buildStandardProxy; }
 
-    protected $protocolRequirements = [];
+    public $flags = ['aerion', 'xbclient'];
 
     public $allowedProtocols = [
         Server::TYPE_SHADOWSOCKS,
@@ -38,6 +40,6 @@ class Aerion extends ClashMeta
     {
         return $server['type'] === Server::TYPE_FLUX
             ? FluxConfig::toClientProxy((string) $server['password'], $server)
-            : parent::buildProxy($server);
+            : $this->buildStandardProxy($server);
     }
 }

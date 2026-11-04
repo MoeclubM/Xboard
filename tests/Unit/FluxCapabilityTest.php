@@ -57,6 +57,7 @@ class FluxCapabilityTest extends TestCase
     public function test_aerion_has_its_own_flags_and_capability_filter(): void
     {
         $manager = new ProtocolManager($this->app);
+        $this->assertFalse(is_subclass_of(Aerion::class, ClashMeta::class));
         $this->assertSame(Aerion::class, $manager->matchProtocolClassName('aerion'));
         $this->assertSame(Aerion::class, $manager->matchProtocolClassName('XBClient/0.1'));
         $this->assertSame(ClashMeta::class, $manager->matchProtocolClassName('Mihomo/1.19.22'));
