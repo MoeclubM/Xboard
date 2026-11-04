@@ -3,6 +3,7 @@
 namespace App\Protocols;
 
 use App\Models\Server;
+use App\Support\FluxConfig;
 use App\Utils\Helper;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Yaml\Yaml;
@@ -10,7 +11,7 @@ use App\Support\AbstractProtocol;
 
 class ClashMeta extends AbstractProtocol
 {
-    public $flags = ['mihomo', 'meta', 'verge', 'flclash', 'nekobox', 'clashmetaforandroid', 'sparkle', 'clash-party', 'nyanpasu', 'gui.for.clash', 'openclash'];
+    public $flags = ['mihomo', 'meta', 'verge', 'flclash', 'nekobox', 'clashmetaforandroid', 'sparkle', 'clash-party', 'nyanpasu', 'gui.for.clash', 'openclash', 'aerion', 'xbclient'];
     const CUSTOM_TEMPLATE_FILE = 'resources/rules/custom.clashmeta.yaml';
     const CUSTOM_CLASH_TEMPLATE_FILE = 'resources/rules/custom.clash.yaml';
     const DEFAULT_TEMPLATE_FILE = 'resources/rules/default.clash.yaml';
@@ -26,6 +27,7 @@ class ClashMeta extends AbstractProtocol
         Server::TYPE_HTTP,
         Server::TYPE_MIERU,
         Server::TYPE_SUDOKU,
+        Server::TYPE_FLUX,
     ];
 
     protected $protocolRequirements = [
@@ -165,10 +167,34 @@ class ClashMeta extends AbstractProtocol
         } else {
             $supportsSudoku = false;
         }
+        $supportsFlux = $this->supportsFluxClient($agent);
 
         return collect(parent::filterServersByVersion())
-            ->filter(fn($server) => $server['type'] !== Server::TYPE_SUDOKU || $supportsSudoku)
+            ->filter(fn($server) => ($server['type'] !== Server::TYPE_SUDOKU || $supportsSudoku)
+                && ($server['type'] !== Server::TYPE_FLUX || $supportsFlux))
             ->values()->all();
+    }
+
+    private function supportsFluxClient(string $agent): bool
+    {
+        if (preg_match('/(?:aerion|xbclient)/i', $agent) || in_array(strtolower((string) $this->clientName), ['aerion', 'xbclient'], true)) {
+            return true;
+        }
+        $req = function_exists('request') ? request() : null;
+        if ($req) {
+            $protoHeader = strtolower((string) $req->header('X-XBClient-Protocols', ''));
+            if ($protoHeader !== '' && in_array('flux', array_map('trim', explode(',', $protoHeader)), true)) {
+                return true;
+            }
+            $rawTypes = strtolower(trim((string) $req->query('types', '')));
+            if ($rawTypes !== '' && $rawTypes !== 'all') {
+                $tokens = preg_split('/[|,｜\s]+/', $rawTypes, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                if (in_array('flux', $tokens, true)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public function handle()
@@ -222,6 +248,10 @@ class ClashMeta extends AbstractProtocol
             }
             if ($item['type'] === Server::TYPE_SUDOKU) {
                 array_push($proxy, self::buildSudoku($item['password'], $item));
+                array_push($proxies, $item['name']);
+            }
+            if ($item['type'] === Server::TYPE_FLUX) {
+                array_push($proxy, self::buildFlux($item['password'], $item));
                 array_push($proxies, $item['name']);
             }
             if ($item['type'] === Server::TYPE_MIERU) {
@@ -743,6 +773,11 @@ class ClashMeta extends AbstractProtocol
             'path-root' => $protocol_settings['path_root'],
             'udp' => true,
         ];
+    }
+
+    public static function buildFlux($password, $server)
+    {
+        return FluxConfig::toClashClientProxy((string) $password, (array) $server);
     }
 
     public static function buildMieru($password, $server)

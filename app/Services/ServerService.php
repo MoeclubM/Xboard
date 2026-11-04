@@ -7,6 +7,7 @@ use App\Models\ServerMachine;
 use App\Models\ServerRoute;
 use App\Models\User;
 use App\Services\Plugin\HookManager;
+use App\Support\FluxConfig;
 use App\Utils\CacheKey;
 use App\Utils\Helper;
 use Illuminate\Support\Facades\Cache;
@@ -369,6 +370,16 @@ class ServerService
             'sudoku' => [
                 ...$baseConfig,
                 'sudoku' => $protocolSettings,
+            ],
+            'flux' => [
+                ...$baseConfig,
+                'host' => $host,
+                'server_port' => (int) $serverPort,
+                'server_name' => data_get($protocolSettings, 'tls_settings.server_name')
+                    ?: data_get($protocolSettings, 'reality_settings.server_name'),
+                'tls_settings' => data_get($protocolSettings, 'tls_settings'),
+                'reality_settings' => data_get($protocolSettings, 'reality_settings'),
+                'flux' => FluxConfig::toNodeServerPayload(is_array($protocolSettings) ? $protocolSettings : []),
             ],
             default => [],
         };

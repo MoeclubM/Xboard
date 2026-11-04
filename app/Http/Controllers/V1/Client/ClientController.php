@@ -28,6 +28,7 @@ class ClientController extends Controller
         'tuic' => '[tuic]',
         'socks' => '[socks]',
         'sudoku' => '[sudoku]',
+        'flux' => '[flux]',
         'anytls' => '[anytls]'
     ];
 
