@@ -15,6 +15,20 @@ class FluxConfig
     public const IP_VERSIONS = ['auto', 'ipv4', 'ipv6'];
     public const CHANNEL_ROLES = ['primary', 'backup'];
 
+    public static function supportsClient(?\Illuminate\Http\Request $request, string $agent = '', ?string $clientName = null): bool
+    {
+        $types = strtolower(trim((string) $request?->query('types', '')));
+        if ($types !== '' && $types !== 'all') {
+            return in_array('flux', preg_split('/[|,\s]+/u', $types, -1, PREG_SPLIT_NO_EMPTY) ?: [], true);
+        }
+        $header = strtolower(trim((string) $request?->header('X-XBClient-Protocols', '')));
+        if ($header !== '') {
+            return in_array('flux', array_map('trim', explode(',', $header)), true);
+        }
+        return in_array(strtolower((string) $clientName), ['aerion', 'xbclient'], true)
+            || preg_match('/(?:^|[\s(;])(?:aerion|xbclient)(?:[\/\s;)]|$)/i', $agent) === 1;
+    }
+
     public static function parsePortSpec(mixed $spec, int $maxPorts = self::MAX_EXPANDED_PORTS): array
     {
         $raw = is_array($spec) ? implode(',', $spec) : trim((string) $spec);
