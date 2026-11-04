@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:8-alpine
+        ports: ['6379:6379']
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testing
+          MYSQL_DATABASE: xboard_test
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -ptesting" --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_DATABASE: xboard_test
+      DB_USERNAME: root
+      DB_PASSWORD: testing
+      CACHE_STORE: array
+      CACHE_DRIVER: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_mysql, redis, bcmath, pcntl, gd, zip, intl
+          tools: composer
+      - run: composer install --no-interaction --prefer-dist
+      - run: vendor/bin/phpunit tests/Unit/Services/Auth
+      - run: vendor/bin/phpunit tests/Unit/SubscriptionTokenTest.php
+      - run: vendor/bin/phpunit tests/Unit/FluxCapabilityTest.php
