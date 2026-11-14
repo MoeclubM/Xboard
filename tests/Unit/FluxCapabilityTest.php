@@ -16,18 +16,51 @@ class FluxCapabilityTest extends TestCase
         $proxy = FluxConfig::toClientProxy('credential', [
             'name' => 'Flux', 'host' => 'edge.example.com', 'port' => 443,
             'protocol_settings' => [
-                'security' => 'tls', 'tls_settings' => ['allow_insecure' => true],
+                'tls_settings' => ['allow_insecure' => true],
                 'channels' => [
-                    ['id' => 'inherit'],
-                    ['id' => 'verified', 'allow_insecure' => false],
-                    ['id' => 'insecure', 'allow_insecure' => true],
+                    ['id' => 'inherit', 'security' => 'tls'],
+                    ['id' => 'verified', 'security' => 'tls', 'allow_insecure' => false],
+                    ['id' => 'insecure', 'security' => 'tls', 'allow_insecure' => true],
                 ],
             ],
         ]);
+        $this->assertSame('latency', $proxy['ip-strategy']);
+        $this->assertArrayNotHasKey('security', $proxy);
+        $this->assertArrayNotHasKey('obfs-key', $proxy);
+        $this->assertArrayNotHasKey('reality-opts', $proxy);
         $this->assertTrue($proxy['skip-cert-verify']);
         $this->assertArrayNotHasKey('skip-cert-verify', $proxy['channels'][0]);
         $this->assertFalse($proxy['channels'][1]['skip-cert-verify']);
         $this->assertTrue($proxy['channels'][2]['skip-cert-verify']);
+    }
+
+    public function test_flux_defaults_to_latency_dual_stack_tcp_and_preserves_udp_roles(): void
+    {
+        $normalized = FluxConfig::normalizeSettings([], true);
+        $this->assertSame('latency', $normalized['ip_strategy']);
+        $this->assertArrayNotHasKey('security', $normalized);
+        $this->assertArrayNotHasKey('obfs_key', $normalized);
+        $this->assertArrayNotHasKey('reality_settings', $normalized);
+        $this->assertCount(2, $normalized['channels']);
+        $this->assertSame('tcp-v4', $normalized['channels'][0]['id']);
+        $this->assertSame('ipv4', $normalized['channels'][0]['ip_version']);
+        $this->assertSame('tcp', $normalized['channels'][0]['transport']);
+        $this->assertSame('obfs', $normalized['channels'][0]['security']);
+        $this->assertSame('tcp-v6', $normalized['channels'][1]['id']);
+        $this->assertSame('ipv6', $normalized['channels'][1]['ip_version']);
+        $this->assertSame($normalized['channels'][0]['obfs_key'], $normalized['channels'][1]['obfs_key']);
+        $this->assertSame(32, strlen($normalized['channels'][0]['obfs_key']));
+
+        $custom = FluxConfig::normalizeSettings([
+            'channels' => [
+                ['id' => 'udp-relay', 'transport' => 'udp', 'role' => 'udp_relay', 'security' => 'obfs', 'obfs_key' => 'relay-key'],
+                ['id' => 'tcp-wrong-role', 'transport' => 'tcp', 'role' => 'udp_relay', 'security' => 'obfs', 'obfs_key' => 'tcp-key'],
+                ['id' => 'udp-prefer', 'transport' => 'udp', 'role' => 'prefer', 'security' => 'obfs', 'obfs_key' => 'prefer-key'],
+            ],
+        ]);
+        $this->assertSame('udp_relay', $custom['channels'][0]['role']);
+        $this->assertSame('primary', $custom['channels'][1]['role']);
+        $this->assertSame('prefer', $custom['channels'][2]['role']);
     }
 
     public function test_mihomo_never_exports_flux_even_with_an_explicit_capability(): void
@@ -38,6 +71,7 @@ class FluxCapabilityTest extends TestCase
             ['Clash-Verge/2.5.0', '', '', false],
             ['Aerion/0.1', '', '', true],
             ['XBClient/0.1', '', '', true],
+            ['Neto/0.0.9', '', '', true],
             ['Aerion/0.1', 'vless,sudoku', '', false],
             ['Aerion/0.1', '', 'sudoku', false],
             ['Mihomo/1.19.0', 'vless,flux', '', true],
@@ -60,6 +94,7 @@ class FluxCapabilityTest extends TestCase
         $this->assertFalse(is_subclass_of(Aerion::class, ClashMeta::class));
         $this->assertSame(Aerion::class, $manager->matchProtocolClassName('aerion'));
         $this->assertSame(Aerion::class, $manager->matchProtocolClassName('XBClient/0.1'));
+        $this->assertSame(Aerion::class, $manager->matchProtocolClassName('Neto/0.0.9'));
         $this->assertSame(ClashMeta::class, $manager->matchProtocolClassName('Mihomo/1.19.22'));
         $this->assertSame(ClashMeta::class, $manager->matchProtocolClassName('meta'));
 
@@ -86,10 +121,18 @@ class FluxCapabilityTest extends TestCase
             public function proxy(array $server): ?array { return $this->buildProxy($server); }
         };
         $server = ['type' => 'flux', 'name' => 'Flux', 'host' => 'edge.example.com', 'port' => 443,
-            'password' => 'credential', 'protocol_settings' => ['security' => 'obfs', 'obfs_key' => 'secret',
-                'utls' => ['enabled' => true, 'fingerprint' => 'chrome']]];
+            'password' => 'credential', 'protocol_settings' => [
+                'utls' => ['enabled' => true, 'fingerprint' => 'chrome'],
+                'channels' => [
+                    ['id' => 'tcp-v4', 'transport' => 'tcp', 'ip_version' => 'ipv4', 'security' => 'obfs', 'obfs_key' => 'secret'],
+                ],
+            ]];
         $this->assertNull($mihomo->proxy($server));
-        $this->assertSame(FluxConfig::toClientProxy('credential', $server), $aerion->proxy($server));
+        $built = $aerion->proxy($server);
+        $this->assertSame(FluxConfig::toClientProxy('credential', $server), $built);
+        $this->assertArrayNotHasKey('security', $built);
+        $this->assertArrayNotHasKey('obfs-key', $built);
+        $this->assertSame('secret', $built['channels'][0]['obfs-key']);
         $server['type'] = 'http';
         $this->assertSame($mihomo->proxy($server), $aerion->proxy($server));
     }

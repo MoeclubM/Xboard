@@ -375,10 +375,8 @@ class ServerService
                 ...$baseConfig,
                 'host' => $host,
                 'server_port' => (int) $serverPort,
-                'server_name' => data_get($protocolSettings, 'tls_settings.server_name')
-                    ?: data_get($protocolSettings, 'reality_settings.server_name'),
+                'server_name' => data_get($protocolSettings, 'tls_settings.server_name'),
                 'tls_settings' => data_get($protocolSettings, 'tls_settings'),
-                'reality_settings' => data_get($protocolSettings, 'reality_settings'),
                 'flux' => FluxConfig::toNodeServerPayload(is_array($protocolSettings) ? $protocolSettings : []),
             ],
             default => [],

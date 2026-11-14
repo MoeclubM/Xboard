@@ -11,7 +11,7 @@ class Aerion extends AbstractProtocol
 {
     use YamlSubscription { buildProxy as protected buildStandardProxy; }
 
-    public $flags = ['aerion', 'xbclient'];
+    public $flags = ['aerion', 'xbclient', 'neto'];
 
     public $allowedProtocols = [
         Server::TYPE_SHADOWSOCKS,

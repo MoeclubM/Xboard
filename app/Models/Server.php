@@ -219,26 +219,11 @@ class Server extends Model
 
     private const PROTOCOL_CONFIGURATIONS = [
         self::TYPE_FLUX => [
-            'ip_strategy' => ['type' => 'string', 'default' => 'dual'],
+            'ip_strategy' => ['type' => 'string', 'default' => 'latency'],
             'standby_channels' => ['type' => 'integer', 'default' => 2],
             'rotation_interval_sec' => ['type' => 'integer', 'default' => 180],
             'rotation_bytes_mb' => ['type' => 'integer', 'default' => 96],
-            'security' => ['type' => 'string', 'default' => 'reality'],
-            'obfs_key' => ['type' => 'string', 'default' => ''],
             'tls_settings' => self::TLS_SETTINGS_CONFIGURATION,
-            'reality_settings' => [
-                'type' => 'object',
-                'fields' => [
-                    'server_name' => ['type' => 'string', 'default' => null],
-                    'server_port' => ['type' => 'integer', 'default' => 443],
-                    'public_key' => ['type' => 'string', 'default' => null],
-                    'private_key' => ['type' => 'string', 'default' => null],
-                    'short_id' => ['type' => 'string', 'default' => null],
-                    'dest' => ['type' => 'string', 'default' => null],
-                    'fallback' => ['type' => 'boolean', 'default' => null],
-                    'allow_insecure' => ['type' => 'boolean', 'default' => false],
-                ],
-            ],
             ...self::UTLS_CONFIGURATION,
             'channels' => ['type' => 'array', 'default' => []],
         ],
@@ -414,7 +399,7 @@ class Server extends Model
         $configs = self::PROTOCOL_CONFIGURATIONS[$this->type] ?? [];
         $castedSettings = $this->castSettingsWithConfig($value ?? [], $configs);
         if ($this->type === self::TYPE_FLUX) {
-            $castedSettings = \App\Support\FluxConfig::normalizeSettings($castedSettings);
+            $castedSettings = \App\Support\FluxConfig::normalizeSettings($castedSettings, true);
         }
 
         $this->attributes['protocol_settings'] = json_encode($castedSettings);

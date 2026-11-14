@@ -45,14 +45,10 @@ class ServerSave extends FormRequest
 
     private const PROTOCOL_RULES = [
         'flux' => [
-            'ip_strategy' => 'nullable|string|in:dual,prefer_v4,prefer_v6,v4_only,v6_only',
+            'ip_strategy' => 'nullable|string|in:latency,dual,prefer_v4,prefer_v6,v4_only,v6_only',
             'standby_channels' => 'nullable|integer|min:0|max:16',
             'rotation_interval_sec' => 'nullable|integer|min:0|max:86400',
             'rotation_bytes_mb' => 'nullable|integer|min:0|max:10240',
-            'security' => 'nullable|string|in:reality,tls,obfs',
-            'obfs_key' => 'nullable|string|max:256',
-            'reality_settings.dest' => 'nullable|string|max:255',
-            'reality_settings.fallback' => 'nullable|boolean',
             'channels' => 'nullable|array|max:64',
             'channels.*.id' => 'nullable|string|max:64',
             'channels.*.enabled' => 'nullable|boolean',
@@ -61,14 +57,14 @@ class ServerSave extends FormRequest
             'channels.*.ip_version' => 'nullable|string|in:auto,ipv4,ipv6',
             'channels.*.listen_ip' => 'nullable|ip',
             'channels.*.listen_ports' => 'nullable',
-            'channels.*.role' => 'nullable|string|in:primary,backup',
+            'channels.*.role' => 'nullable|string|in:primary,udp_relay,prefer,backup',
             'channels.*.weight' => 'nullable|integer|min:1|max:100',
             'channels.*.transport' => 'nullable|string|in:tcp,udp,http',
             'channels.*.http_mode' => 'nullable|string|in:ws,httpupgrade,h2',
             'channels.*.http_host' => 'nullable|string|max:255',
             'channels.*.http_path' => 'nullable|string|max:255',
             'channels.*.http_headers' => 'nullable|array',
-            'channels.*.security' => 'nullable|string|in:reality,tls,obfs',
+            'channels.*.security' => 'nullable|string|in:obfs,tls',
             'channels.*.sni' => 'nullable|string|max:255',
             'channels.*.allow_insecure' => 'nullable|boolean',
             'channels.*.fingerprint' => 'nullable|string|max:64',
@@ -76,14 +72,6 @@ class ServerSave extends FormRequest
             'channels.*.cert_path' => 'nullable|string|max:512',
             'channels.*.key_path' => 'nullable|string|max:512',
             'channels.*.obfs_key' => 'nullable|string|max:256',
-            'channels.*.reality' => 'nullable|array',
-            'channels.*.reality.server_name' => 'nullable|string|max:255',
-            'channels.*.reality.server_port' => 'nullable|integer|min:1|max:65535',
-            'channels.*.reality.public_key' => 'nullable|string',
-            'channels.*.reality.private_key' => 'nullable|string',
-            'channels.*.reality.short_id' => 'nullable|string|max:16',
-            'channels.*.reality.dest' => 'nullable|string|max:255',
-            'channels.*.reality.fallback' => 'nullable|boolean',
         ],
         'sudoku' => [
             'aead' => 'nullable|string|in:chacha20-poly1305,aes-128-gcm',
@@ -207,7 +195,6 @@ class ServerSave extends FormRequest
             'flux' => array_merge(
                 $rules,
                 $this->buildTlsSettingsRules(includeRoot: true),
-                self::REALITY_RULES,
                 self::UTLS_RULES,
             ),
             'sudoku' => array_merge($rules, [
@@ -310,7 +297,7 @@ class ServerSave extends FormRequest
     {
         if ($this->input('type') === Server::TYPE_FLUX && is_array($this->input('protocol_settings'))) {
             $this->merge([
-                'protocol_settings' => FluxConfig::normalizeSettings($this->input('protocol_settings')),
+                'protocol_settings' => FluxConfig::normalizeSettings($this->input('protocol_settings'), true, true),
             ]);
         }
     }
