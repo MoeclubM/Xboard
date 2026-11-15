@@ -4,9 +4,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Models\Server;
-use App\Support\FluxConfig;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Validator;
 
 class ServerSave extends FormRequest
 {
@@ -44,49 +42,6 @@ class ServerSave extends FormRequest
     ];
 
     private const PROTOCOL_RULES = [
-        'flux' => [
-            'ip_strategy' => 'nullable|string|in:latency,dual,prefer_v4,prefer_v6,v4_only,v6_only',
-            'standby_channels' => 'nullable|integer|min:0|max:16',
-            'rotation_interval_sec' => 'nullable|integer|min:0|max:86400',
-            'rotation_bytes_mb' => 'nullable|integer|min:0|max:10240',
-            'channels' => 'nullable|array|max:64',
-            'channels.*.id' => 'nullable|string|max:64',
-            'channels.*.enabled' => 'nullable|boolean',
-            'channels.*.connect_host' => 'nullable|string|max:255',
-            'channels.*.connect_ports' => 'nullable',
-            'channels.*.ip_version' => 'nullable|string|in:auto,ipv4,ipv6',
-            'channels.*.listen_ip' => 'nullable|ip',
-            'channels.*.listen_ports' => 'nullable',
-            'channels.*.role' => 'nullable|string|in:primary,udp_relay,prefer,backup',
-            'channels.*.weight' => 'nullable|integer|min:1|max:100',
-            'channels.*.transport' => 'nullable|string|in:tcp,udp,http',
-            'channels.*.http_mode' => 'nullable|string|in:ws,httpupgrade,h2',
-            'channels.*.http_host' => 'nullable|string|max:255',
-            'channels.*.http_path' => 'nullable|string|max:255',
-            'channels.*.http_headers' => 'nullable|array',
-            'channels.*.security' => 'nullable|string|in:obfs,tls',
-            'channels.*.sni' => 'nullable|string|max:255',
-            'channels.*.allow_insecure' => 'nullable|boolean',
-            'channels.*.fingerprint' => 'nullable|string|max:64',
-            'channels.*.cert_mode' => 'nullable|string|in:inherit,file,origin_plain',
-            'channels.*.cert_path' => 'nullable|string|max:512',
-            'channels.*.key_path' => 'nullable|string|max:512',
-            'channels.*.obfs_key' => 'nullable|string|max:256',
-        ],
-        'sudoku' => [
-            'aead' => 'nullable|string|in:chacha20-poly1305,aes-128-gcm',
-            'table_type' => 'nullable|string|in:prefer_entropy,prefer_ascii,up_ascii_down_entropy,up_entropy_down_ascii',
-            'enable_pure_downlink' => 'nullable|boolean',
-            'custom_table' => 'nullable|string|regex:/^(?=(?:[^x]*x){2}[^x]*$)(?=(?:[^p]*p){2}[^p]*$)[xpv]{8}$/',
-            'custom_tables' => 'nullable|array',
-            'custom_tables.*' => 'string|regex:/^(?=(?:[^x]*x){2}[^x]*$)(?=(?:[^p]*p){2}[^p]*$)[xpv]{8}$/',
-            'multiplex' => 'nullable|string|in:off,auto,on',
-            'http_mask' => 'required_if:protocol_settings.http_mask_tls,true|nullable|boolean|accepted_if:protocol_settings.http_mask_tls,true',
-            'http_mask_mode' => 'nullable|string|in:legacy,ws',
-            'http_mask_tls' => 'nullable|boolean',
-            'http_mask_host' => 'nullable|string',
-            'path_root' => 'nullable|string|regex:/^[a-zA-Z0-9_-]*$/',
-        ],
         'shadowsocks' => [
             'cipher' => 'required|string',
             'obfs' => 'nullable|string',
@@ -192,15 +147,6 @@ class ServerSave extends FormRequest
         $rules = self::PROTOCOL_RULES[$type] ?? [];
 
         return match ($type) {
-            'flux' => array_merge(
-                $rules,
-                $this->buildTlsSettingsRules(includeRoot: true),
-                self::UTLS_RULES,
-            ),
-            'sudoku' => array_merge($rules, [
-                'padding_min' => 'nullable|integer|min:0|max:' . min(100, (int) ($this->input('protocol_settings.padding_max') ?? 15)),
-                'padding_max' => 'nullable|integer|max:100|min:' . max(0, (int) ($this->input('protocol_settings.padding_min') ?? 5)),
-            ]),
             'vmess' => array_merge(
                 $rules,
                 $this->buildTlsSettingsRules(),
@@ -291,31 +237,6 @@ class ServerSave extends FormRequest
         }
 
         return $rules;
-    }
-
-    protected function prepareForValidation(): void
-    {
-        if ($this->input('type') === Server::TYPE_FLUX && is_array($this->input('protocol_settings'))) {
-            $this->merge([
-                'protocol_settings' => FluxConfig::normalizeSettings($this->input('protocol_settings'), true, true),
-            ]);
-        }
-    }
-
-    public function withValidator(Validator $validator): void
-    {
-        $validator->after(function (Validator $validator) {
-            if ($this->input('type') !== Server::TYPE_FLUX) {
-                return;
-            }
-            $settings = is_array($this->input('protocol_settings')) ? $this->input('protocol_settings') : [];
-            FluxConfig::validateSettings(
-                $settings,
-                $this->input('port'),
-                $this->input('server_port'),
-                fn(string $field, string $message) => $validator->errors()->add($field, $message)
-            );
-        });
     }
 
     public function attributes(): array

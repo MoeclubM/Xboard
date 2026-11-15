@@ -44,4 +44,4 @@ jobs:
       - run: composer install --no-interaction --prefer-dist
       - run: vendor/bin/phpunit tests/Unit/Services/Auth
       - run: vendor/bin/phpunit tests/Unit/SubscriptionTokenTest.php
-      - run: vendor/bin/phpunit tests/Unit/FluxCapabilityTest.php
+      - run: vendor/bin/phpunit tests/Unit/AerionProtocolTest.php

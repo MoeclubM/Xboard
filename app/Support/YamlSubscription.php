@@ -77,7 +77,6 @@ trait YamlSubscription
             Server::TYPE_ANYTLS => ClashMeta::buildAnyTLS($password, $server),
             Server::TYPE_SOCKS => ClashMeta::buildSocks5($password, $server),
             Server::TYPE_HTTP => ClashMeta::buildHttp($password, $server),
-            Server::TYPE_SUDOKU => ClashMeta::buildSudoku($password, $server),
             Server::TYPE_MIERU => ClashMeta::buildMieru($password, $server),
             default => null,
         };

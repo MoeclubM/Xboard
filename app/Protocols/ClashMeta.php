@@ -27,7 +27,6 @@ class ClashMeta extends AbstractProtocol
         Server::TYPE_SOCKS,
         Server::TYPE_HTTP,
         Server::TYPE_MIERU,
-        Server::TYPE_SUDOKU,
     ];
 
     protected $protocolRequirements = [
@@ -143,34 +142,6 @@ class ClashMeta extends AbstractProtocol
             1 => '1.19.9',
         ],
     ];
-
-    protected function filterServersByVersion()
-    {
-        $agent = $this->userAgent ?? "{$this->clientName}/{$this->clientVersion}";
-        if (preg_match('/(?:^|[\s(;])(mihomo(?:[-.\s](?:meta|smart|alpha))?|clash(?:[.\s]meta)?|meta)[\/\s]+([^\s();]+)/i', $agent, $matches)) {
-            $supportsSudoku = strtolower($matches[1]) !== 'clash'
-                && preg_match('/^v?(\d+\.\d+\.\d+)(?:-([a-z0-9.-]+))?(?:\+[a-z0-9.-]+)?$/i', $matches[2], $version)
-                && version_compare($version[1], '1.19.22', !empty($version[2]) ? '>' : '>=');
-        } elseif (preg_match('/(?:^|[\s(;])(clash-verge|flclash|clashmetaforandroid|mihomo[.-]party|clash-party|sparkle)[\/\s]+v?(\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?)(?:\.(meta|alpha)(?:\.debug)?)?(?:\+[a-z0-9.-]+)?(?=$|[\s();])/i', $agent, $matches)) {
-            // Minimum releases with compatible bundled Sudoku implementations.
-            $minVersion = [
-                'clash-verge' => '2.5.0',
-                'flclash' => '0.8.93',
-                'clashmetaforandroid' => '2.11.25',
-                'mihomo.party' => '1.9.5',
-                'mihomo-party' => '1.9.5',
-                'clash-party' => '1.9.5',
-                'sparkle' => '1.26.4',
-            ][strtolower($matches[1])];
-            $version = explode('-', $matches[2], 2);
-            $supportsSudoku = version_compare($version[0], $minVersion, isset($version[1]) || strtolower($matches[3] ?? '') === 'alpha' ? '>' : '>=');
-        } else {
-            $supportsSudoku = false;
-        }
-        return collect(parent::filterServersByVersion())
-            ->filter(fn($server) => $server['type'] !== Server::TYPE_SUDOKU || $supportsSudoku)
-            ->values()->all();
-    }
 
     public static function buildShadowsocks($password, $server)
     {
@@ -601,32 +572,6 @@ class ClashMeta extends AbstractProtocol
         self::appendEch($array, data_get($protocol_settings, 'tls.ech'));
 
         return $array;
-    }
-
-    public static function buildSudoku($password, $server)
-    {
-        $protocol_settings = $server['protocol_settings'];
-        return [
-            'name' => $server['name'],
-            'type' => 'sudoku',
-            'server' => $server['host'],
-            'port' => (int) $server['port'],
-            'key' => $password,
-            'aead-method' => $protocol_settings['aead'],
-            'table-type' => $protocol_settings['table_type'],
-            'padding-min' => $protocol_settings['padding_min'],
-            'padding-max' => $protocol_settings['padding_max'],
-            'enable-pure-downlink' => $protocol_settings['enable_pure_downlink'],
-            'custom-table' => $protocol_settings['custom_table'],
-            'custom-tables' => $protocol_settings['custom_tables'],
-            'http-mask-multiplex' => $protocol_settings['multiplex'],
-            'http-mask' => $protocol_settings['http_mask'],
-            'http-mask-mode' => $protocol_settings['http_mask_mode'],
-            'http-mask-tls' => $protocol_settings['http_mask_tls'],
-            'http-mask-host' => $protocol_settings['http_mask_host'],
-            'path-root' => $protocol_settings['path_root'],
-            'udp' => true,
-        ];
     }
 
     public static function buildMieru($password, $server)
