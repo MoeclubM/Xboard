@@ -17,6 +17,7 @@ class Shadowrocket extends AbstractProtocol
         Server::TYPE_HYSTERIA,
         Server::TYPE_TUIC,
         Server::TYPE_ANYTLS,
+        Server::TYPE_MIERU,
         Server::TYPE_SOCKS,
     ];
 
@@ -63,6 +64,9 @@ class Shadowrocket extends AbstractProtocol
             if ($item['type'] === Server::TYPE_ANYTLS) {
                 $uri .= self::buildAnyTLS($item['password'], $item);
             }
+            if ($item['type'] === Server::TYPE_MIERU && $this->supportsMieru($item)) {
+                $uri .= self::buildMieru($item['password'], $item);
+            }
             if ($item['type'] === Server::TYPE_SOCKS) {
                 $uri .= self::buildSocks($item['password'], $item);
             }
@@ -71,6 +75,33 @@ class Shadowrocket extends AbstractProtocol
             ->header('content-type', 'text/plain');
     }
 
+
+    private function supportsMieru($server): bool
+    {
+        $version = $this->clientVersion;
+        if (!$version || !str_contains($version, '.')) {
+            return true;
+        }
+
+        $minVersion = data_get($server, 'protocol_settings.traffic_pattern') ? '2.2.90' : '2.2.82';
+        return version_compare($version, $minVersion, '>=');
+    }
+
+    public static function buildMieru($password, $server)
+    {
+        $options = $server['protocol_settings'] ?? [];
+        $params = [
+            'profile' => $server['name'],
+            'port' => $server['ports'] ?? $server['port'],
+            'protocol' => strtoupper(data_get($options, 'transport', 'TCP')),
+        ];
+        if ($pattern = data_get($options, 'traffic_pattern')) {
+            $params['traffic-pattern'] = $pattern;
+        }
+        $credential = rawurlencode($password);
+        $host = Helper::wrapIPv6($server['host']);
+        return "mierus://{$credential}:{$credential}@{$host}?" . http_build_query($params, '', '&', PHP_QUERY_RFC3986) . "\r\n";
+    }
 
     public static function buildShadowsocks($password, $server)
     {
